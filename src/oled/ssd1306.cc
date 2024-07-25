@@ -6,16 +6,18 @@
 #include <cstdlib>
 #include <cstring>
 
+namespace oled {
+
 // Screenbuffer
 static uint8_t SSD1306_Buffer[SSD1306_BUFFER_SIZE];
 
 // Screen object
-static SSD1306_t SSD1306;
+static Screen SSD1306;
 
 /* Fills the Screenbuffer with values from a given buffer of a fixed length */
-SSD1306_Error_t ssd1306_FillBuffer(uint8_t* buf, uint32_t len)
+Status fill_buffer(uint8_t* buf, uint32_t len)
 {
-    SSD1306_Error_t ret = SSD1306_ERR;
+    Status ret = SSD1306_ERR;
     if (len <= SSD1306_BUFFER_SIZE) {
         std::memcpy(SSD1306_Buffer, buf, len);
         ret = SSD1306_OK;
@@ -24,7 +26,7 @@ SSD1306_Error_t ssd1306_FillBuffer(uint8_t* buf, uint32_t len)
 }
 
 /* Initialize the oled screen */
-void ssd1306_Init(void)
+void init(void)
 {
     // Reset OLED
     sys::reset();
@@ -33,7 +35,7 @@ void ssd1306_Init(void)
     sys::delay(100);
 
     // Init OLED
-    ssd1306_SetDisplayOn(0); // display off
+    set_displayOn(0); // display off
 
     sys::command(0x20); // Set Memory Addressing Mode
     sys::command(0x00); // 00b,Horizontal Addressing Mode; 01b,Vertical Addressing Mode;
@@ -52,7 +54,7 @@ void ssd1306_Init(void)
 
     sys::command(0x40); //--set start line address - CHECK
 
-    ssd1306_SetContrast(0xFF);
+    set_contrast(0xFF);
 
 #ifdef SSD1306_MIRROR_HORIZ
     sys::command(0xA0); // Mirror horizontally
@@ -111,13 +113,13 @@ void ssd1306_Init(void)
 
     sys::command(0x8D); //--set DC-DC enable
     sys::command(0x14); //
-    ssd1306_SetDisplayOn(1); //--turn on SSD1306 panel
+    set_displayOn(1); //--turn on SSD1306 panel
 
     // Clear screen
-    ssd1306_Fill(Black);
+    fill(Black);
 
     // Flush buffer to screen
-    ssd1306_UpdateScreen();
+    update();
 
     // Set default values for screen object
     SSD1306.CurrentX = 0;
@@ -127,13 +129,13 @@ void ssd1306_Init(void)
 }
 
 /* Fill the whole screen with the given color */
-void ssd1306_Fill(SSD1306_COLOR color)
+void fill(Color color)
 {
     memset(SSD1306_Buffer, (color == Black) ? 0x00 : 0xFF, sizeof(SSD1306_Buffer));
 }
 
 /* Write the screenbuffer with changed to the screen */
-void ssd1306_UpdateScreen(void)
+void update(void)
 {
     // Write data to each page of RAM. Number of pages
     // depends on the screen height:
@@ -155,7 +157,7 @@ void ssd1306_UpdateScreen(void)
  * Y => Y Coordinate
  * color => Pixel color
  */
-void ssd1306_DrawPixel(uint8_t x, uint8_t y, SSD1306_COLOR color)
+void draw_pixel(uint8_t x, uint8_t y, Color color)
 {
     if (x >= SSD1306_WIDTH || y >= SSD1306_HEIGHT) {
         // Don't write outside the buffer
@@ -176,7 +178,7 @@ void ssd1306_DrawPixel(uint8_t x, uint8_t y, SSD1306_COLOR color)
  * Font     => Font waarmee we gaan schrijven
  * color    => Black or White
  */
-char ssd1306_WriteChar(char ch, SSD1306_Font_t Font, SSD1306_COLOR color)
+char write_char(char ch, Font Font, Color color)
 {
     uint32_t i, b, j;
 
@@ -195,9 +197,9 @@ char ssd1306_WriteChar(char ch, SSD1306_Font_t Font, SSD1306_COLOR color)
         b = Font.data[(ch - 32) * Font.height + i];
         for (j = 0; j < Font.width; j++) {
             if ((b << j) & 0x8000) {
-                ssd1306_DrawPixel(SSD1306.CurrentX + j, (SSD1306.CurrentY + i), (SSD1306_COLOR)color);
+                draw_pixel(SSD1306.CurrentX + j, (SSD1306.CurrentY + i), (Color)color);
             } else {
-                ssd1306_DrawPixel(SSD1306.CurrentX + j, (SSD1306.CurrentY + i), (SSD1306_COLOR)!color);
+                draw_pixel(SSD1306.CurrentX + j, (SSD1306.CurrentY + i), (Color)!color);
             }
         }
     }
@@ -210,10 +212,10 @@ char ssd1306_WriteChar(char ch, SSD1306_Font_t Font, SSD1306_COLOR color)
 }
 
 /* Write full string to screenbuffer */
-char ssd1306_WriteString(char* str, SSD1306_Font_t Font, SSD1306_COLOR color)
+char write_string(char* str, Font Font, Color color)
 {
     while (*str) {
-        if (ssd1306_WriteChar(*str, Font, color) != *str) {
+        if (write_char(*str, Font, color) != *str) {
             // Char could not be written
             return *str;
         }
@@ -225,14 +227,14 @@ char ssd1306_WriteString(char* str, SSD1306_Font_t Font, SSD1306_COLOR color)
 }
 
 /* Position the cursor */
-void ssd1306_SetCursor(uint8_t x, uint8_t y)
+void set_cursor(uint8_t x, uint8_t y)
 {
     SSD1306.CurrentX = x;
     SSD1306.CurrentY = y;
 }
 
 /* Draw line by Bresenhem's algorithm */
-void ssd1306_Line(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, SSD1306_COLOR color)
+void draw_line(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, Color color)
 {
     int32_t deltaX = std::abs(x2 - x1);
     int32_t deltaY = std::abs(y2 - y1);
@@ -241,10 +243,10 @@ void ssd1306_Line(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, SSD1306_COLOR 
     int32_t error = deltaX - deltaY;
     int32_t error2;
 
-    ssd1306_DrawPixel(x2, y2, color);
+    draw_pixel(x2, y2, color);
 
     while ((x1 != x2) || (y1 != y2)) {
-        ssd1306_DrawPixel(x1, y1, color);
+        draw_pixel(x1, y1, color);
         error2 = error * 2;
         if (error2 > -deltaY) {
             error -= deltaY;
@@ -260,7 +262,7 @@ void ssd1306_Line(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, SSD1306_COLOR 
 }
 
 /* Draw polyline */
-void ssd1306_Polyline(const SSD1306_VERTEX* par_vertex, uint16_t par_size, SSD1306_COLOR color)
+void poly_line(const Vertex* par_vertex, uint16_t par_size, Color color)
 {
     uint16_t i;
     if (par_vertex == NULL) {
@@ -268,7 +270,7 @@ void ssd1306_Polyline(const SSD1306_VERTEX* par_vertex, uint16_t par_size, SSD13
     }
 
     for (i = 1; i < par_size; i++) {
-        ssd1306_Line(par_vertex[i - 1].x, par_vertex[i - 1].y, par_vertex[i].x, par_vertex[i].y, color);
+        draw_line(par_vertex[i - 1].x, par_vertex[i - 1].y, par_vertex[i].x, par_vertex[i].y, color);
     }
 
     return;
@@ -298,7 +300,7 @@ static uint16_t ssd1306_NormalizeTo0_360(uint16_t par_deg)
  * start_angle in degree
  * sweep in degree
  */
-void ssd1306_DrawArc(uint8_t x, uint8_t y, uint8_t radius, uint16_t start_angle, uint16_t sweep, SSD1306_COLOR color)
+void draw_arc(uint8_t x, uint8_t y, uint8_t radius, uint16_t start_angle, uint16_t sweep, Color color)
 {
     static const uint8_t CIRCLE_APPROXIMATION_SEGMENTS = 36;
     float approx_degree;
@@ -326,7 +328,7 @@ void ssd1306_DrawArc(uint8_t x, uint8_t y, uint8_t radius, uint16_t start_angle,
         }
         xp2 = x + (int8_t)(sinf(rad) * radius);
         yp2 = y + (int8_t)(cosf(rad) * radius);
-        ssd1306_Line(xp1, yp1, xp2, yp2, color);
+        draw_line(xp1, yp1, xp2, yp2, color);
     }
 
     return;
@@ -338,7 +340,7 @@ void ssd1306_DrawArc(uint8_t x, uint8_t y, uint8_t radius, uint16_t start_angle,
  * start_angle: start angle in degree
  * sweep: finish angle in degree
  */
-void ssd1306_DrawArcWithRadiusLine(uint8_t x, uint8_t y, uint8_t radius, uint16_t start_angle, uint16_t sweep, SSD1306_COLOR color)
+void draw_arc_with_radius_line(uint8_t x, uint8_t y, uint8_t radius, uint16_t start_angle, uint16_t sweep, Color color)
 {
     const uint32_t CIRCLE_APPROXIMATION_SEGMENTS = 36;
     float approx_degree;
@@ -372,17 +374,17 @@ void ssd1306_DrawArcWithRadiusLine(uint8_t x, uint8_t y, uint8_t radius, uint16_
         }
         xp2 = x + (int8_t)(sinf(rad) * radius);
         yp2 = y + (int8_t)(cosf(rad) * radius);
-        ssd1306_Line(xp1, yp1, xp2, yp2, color);
+        draw_line(xp1, yp1, xp2, yp2, color);
     }
 
     // Radius line
-    ssd1306_Line(x, y, first_point_x, first_point_y, color);
-    ssd1306_Line(x, y, xp2, yp2, color);
+    draw_line(x, y, first_point_x, first_point_y, color);
+    draw_line(x, y, xp2, yp2, color);
     return;
 }
 
 /* Draw circle by Bresenhem's algorithm */
-void ssd1306_DrawCircle(uint8_t par_x, uint8_t par_y, uint8_t par_r, SSD1306_COLOR par_color)
+void draw_circle(uint8_t par_x, uint8_t par_y, uint8_t par_r, Color par_color)
 {
     int32_t x = -par_r;
     int32_t y = 0;
@@ -394,10 +396,10 @@ void ssd1306_DrawCircle(uint8_t par_x, uint8_t par_y, uint8_t par_r, SSD1306_COL
     }
 
     do {
-        ssd1306_DrawPixel(par_x - x, par_y + y, par_color);
-        ssd1306_DrawPixel(par_x + x, par_y + y, par_color);
-        ssd1306_DrawPixel(par_x + x, par_y - y, par_color);
-        ssd1306_DrawPixel(par_x - x, par_y - y, par_color);
+        draw_pixel(par_x - x, par_y + y, par_color);
+        draw_pixel(par_x + x, par_y + y, par_color);
+        draw_pixel(par_x + x, par_y - y, par_color);
+        draw_pixel(par_x - x, par_y - y, par_color);
         e2 = err;
 
         if (e2 <= y) {
@@ -418,7 +420,7 @@ void ssd1306_DrawCircle(uint8_t par_x, uint8_t par_y, uint8_t par_r, SSD1306_COL
 }
 
 /* Draw filled circle. Pixel positions calculated using Bresenham's algorithm */
-void ssd1306_FillCircle(uint8_t par_x, uint8_t par_y, uint8_t par_r, SSD1306_COLOR par_color)
+void fill_circle(uint8_t par_x, uint8_t par_y, uint8_t par_r, Color par_color)
 {
     int32_t x = -par_r;
     int32_t y = 0;
@@ -432,7 +434,7 @@ void ssd1306_FillCircle(uint8_t par_x, uint8_t par_y, uint8_t par_r, SSD1306_COL
     do {
         for (uint8_t _y = (par_y + y); _y >= (par_y - y); _y--) {
             for (uint8_t _x = (par_x - x); _x >= (par_x + x); _x--) {
-                ssd1306_DrawPixel(_x, _y, par_color);
+                draw_pixel(_x, _y, par_color);
             }
         }
 
@@ -455,18 +457,18 @@ void ssd1306_FillCircle(uint8_t par_x, uint8_t par_y, uint8_t par_r, SSD1306_COL
 }
 
 /* Draw a rectangle */
-void ssd1306_DrawRectangle(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, SSD1306_COLOR color)
+void draw_rectangle(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, Color color)
 {
-    ssd1306_Line(x1, y1, x2, y1, color);
-    ssd1306_Line(x2, y1, x2, y2, color);
-    ssd1306_Line(x2, y2, x1, y2, color);
-    ssd1306_Line(x1, y2, x1, y1, color);
+    draw_line(x1, y1, x2, y1, color);
+    draw_line(x2, y1, x2, y2, color);
+    draw_line(x2, y2, x1, y2, color);
+    draw_line(x1, y2, x1, y1, color);
 
     return;
 }
 
 /* Draw a filled rectangle */
-void ssd1306_FillRectangle(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, SSD1306_COLOR color)
+void fill_rectangle(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, Color color)
 {
     uint8_t x_start = ((x1 <= x2) ? x1 : x2);
     uint8_t x_end = ((x1 <= x2) ? x2 : x1);
@@ -475,13 +477,13 @@ void ssd1306_FillRectangle(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, SSD13
 
     for (uint8_t y = y_start; (y <= y_end) && (y < SSD1306_HEIGHT); y++) {
         for (uint8_t x = x_start; (x <= x_end) && (x < SSD1306_WIDTH); x++) {
-            ssd1306_DrawPixel(x, y, color);
+            draw_pixel(x, y, color);
         }
     }
     return;
 }
 
-SSD1306_Error_t ssd1306_InvertRectangle(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2)
+Status invert_rectangle(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2)
 {
     if ((x2 >= SSD1306_WIDTH) || (y2 >= SSD1306_HEIGHT)) {
         return SSD1306_ERR;
@@ -513,7 +515,7 @@ SSD1306_Error_t ssd1306_InvertRectangle(uint8_t x1, uint8_t y1, uint8_t x2, uint
 }
 
 /* Draw a bitmap */
-void ssd1306_DrawBitmap(uint8_t x, uint8_t y, const unsigned char* bitmap, uint8_t w, uint8_t h, SSD1306_COLOR color)
+void draw_bitmap(uint8_t x, uint8_t y, const unsigned char* bitmap, uint8_t w, uint8_t h, Color color)
 {
     int16_t byteWidth = (w + 7) / 8; // Bitmap scanline pad = whole byte
     uint8_t byte = 0;
@@ -531,21 +533,21 @@ void ssd1306_DrawBitmap(uint8_t x, uint8_t y, const unsigned char* bitmap, uint8
             }
 
             if (byte & 0x80) {
-                ssd1306_DrawPixel(x + i, y, color);
+                draw_pixel(x + i, y, color);
             }
         }
     }
     return;
 }
 
-void ssd1306_SetContrast(const uint8_t value)
+void set_contrast(const uint8_t value)
 {
     const uint8_t kSetContrastControlRegister = 0x81;
     sys::command(kSetContrastControlRegister);
     sys::command(value);
 }
 
-void ssd1306_SetDisplayOn(const uint8_t on)
+void set_displayOn(const uint8_t on)
 {
     uint8_t value;
     if (on) {
@@ -558,7 +560,8 @@ void ssd1306_SetDisplayOn(const uint8_t on)
     sys::command(value);
 }
 
-uint8_t ssd1306_GetDisplayOn()
+uint8_t get_display_on()
 {
     return SSD1306.DisplayOn;
+}
 }

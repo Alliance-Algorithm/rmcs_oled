@@ -5,12 +5,12 @@
 #include "oled/ssd1306.hh"
 #include "oled/ssd1306_fonts.hh"
 
-#include <cstdint>
 #include <cstdio>
 
 void entrypoint()
 {
     using namespace hal;
+    using namespace oled;
 
     auto green = gpio::PH<11> {};
     auto blue = gpio::PH<10> {};
@@ -20,19 +20,17 @@ void entrypoint()
     blue.set();
     red.set();
 
-    ssd1306_Init();
+    init();
     delay(10);
-    ssd1306_Fill(SSD1306_COLOR::Black);
+    fill(Color::Black);
 
-    ssd1306_SetCursor(10, 10);
-    ssd1306_WriteString("El Psy Cangroo", Font_7x10, SSD1306_COLOR::White);
+    set_cursor(10, 10);
+    write_string("El Psy Cangroo", Font_7x10, Color::White);
 
-    ssd1306_SetCursor(15, 45);
-    ssd1306_WriteString("STM32F407IGH6", Font_7x10, SSD1306_COLOR::White);
+    set_cursor(15, 45);
+    write_string("STM32F407IGH6", Font_7x10, Color::White);
 
-    ssd1306_UpdateScreen();
-
-    delay(1000);
+    update();
 
     while (true) {
         static int count;
@@ -40,9 +38,9 @@ void entrypoint()
 
         sprintf(string, "count: %d", count++);
 
-        ssd1306_SetCursor(30, 30);
-        ssd1306_WriteString(string, Font_6x8, SSD1306_COLOR::White);
+        set_cursor(30, 30);
+        write_string(string, Font_6x8, Color::White);
 
-        ssd1306_UpdateScreen();
+        update();
     }
 }
