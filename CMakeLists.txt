@@ -41,12 +41,9 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 aux_source_directory(src/oled oled)
 aux_source_directory(src src)
 
-set(system src/system/stm32/system.cc)
-
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
-    ${system}
     ${oled}
     ${src}
 )

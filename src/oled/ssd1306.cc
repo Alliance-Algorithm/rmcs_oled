@@ -1,6 +1,6 @@
 #include "ssd1306.hh"
 
-#include "system/system.hh"
+#include "system.hh"
 
 #include <cmath>
 #include <cstdlib>

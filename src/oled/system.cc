@@ -1,6 +1,8 @@
-#include "system/system.hh"
+#include "system.hh"
+
 #include "hal/base/gpio.hh"
 #include "hal/base/timer.hh"
+
 #include "spi.h"
 
 static auto pin_reset = hal::gpio::PB<14> {};

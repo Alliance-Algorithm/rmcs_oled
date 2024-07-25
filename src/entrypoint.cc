@@ -25,10 +25,10 @@ void entrypoint()
     fill(Color::Black);
 
     set_cursor(10, 10);
-    write_string("El Psy Cangroo", Font_7x10, Color::White);
+    write_string((char*)"El Psy Cangroo", Font_7x10, Color::White);
 
     set_cursor(15, 45);
-    write_string("STM32F407IGH6", Font_7x10, Color::White);
+    write_string((char*)"STM32F407IGH6", Font_7x10, Color::White);
 
     update();
 
