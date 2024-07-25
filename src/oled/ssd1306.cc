@@ -1,56 +1,10 @@
-#include "ssd1306.h"
-#include <math.h>
-#include <stdlib.h>
-#include <string.h>
+#include "ssd1306.hh"
 
-#if defined(SSD1306_USE_I2C)
+#include "system/system.hh"
 
-void ssd1306_Reset(void)
-{
-    /* for I2C - do nothing */
-}
-
-// Send a byte to the command register
-void ssd1306_WriteCommand(uint8_t byte)
-{
-    HAL_I2C_Mem_Write(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x00, 1, &byte, 1, HAL_MAX_DELAY);
-}
-
-// Send data
-void ssd1306_WriteData(uint8_t* buffer, size_t buff_size)
-{
-    HAL_I2C_Mem_Write(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x40, 1, buffer, buff_size, HAL_MAX_DELAY);
-}
-
-#elif defined(SSD1306_USE_SPI)
-
-void ssd1306_Reset(void)
-{
-
-    // Reset the OLED
-    HAL_GPIO_WritePin(SSD1306_Reset_Port, SSD1306_Reset_Pin, GPIO_PIN_RESET);
-    HAL_Delay(10);
-    HAL_GPIO_WritePin(SSD1306_Reset_Port, SSD1306_Reset_Pin, GPIO_PIN_SET);
-    HAL_Delay(10);
-}
-
-// Send a byte to the command register
-void ssd1306_WriteCommand(uint8_t byte)
-{
-    HAL_GPIO_WritePin(SSD1306_DC_Port, SSD1306_DC_Pin, GPIO_PIN_RESET); // command
-    HAL_SPI_Transmit(&SSD1306_SPI_PORT, (uint8_t*)&byte, 1, HAL_MAX_DELAY);
-}
-
-// Send data
-void ssd1306_WriteData(uint8_t* buffer, size_t buff_size)
-{
-    HAL_GPIO_WritePin(SSD1306_DC_Port, SSD1306_DC_Pin, GPIO_PIN_SET); // data
-    HAL_SPI_Transmit(&SSD1306_SPI_PORT, buffer, buff_size, HAL_MAX_DELAY);
-}
-
-#else
-#error "You should define SSD1306_USE_SPI or SSD1306_USE_I2C macro"
-#endif
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
 
 // Screenbuffer
 static uint8_t SSD1306_Buffer[SSD1306_BUFFER_SIZE];
@@ -63,7 +17,7 @@ SSD1306_Error_t ssd1306_FillBuffer(uint8_t* buf, uint32_t len)
 {
     SSD1306_Error_t ret = SSD1306_ERR;
     if (len <= SSD1306_BUFFER_SIZE) {
-        memcpy(SSD1306_Buffer, buf, len);
+        std::memcpy(SSD1306_Buffer, buf, len);
         ret = SSD1306_OK;
     }
     return ret;
@@ -73,90 +27,90 @@ SSD1306_Error_t ssd1306_FillBuffer(uint8_t* buf, uint32_t len)
 void ssd1306_Init(void)
 {
     // Reset OLED
-    ssd1306_Reset();
+    sys::reset();
 
     // Wait for the screen to boot
-    HAL_Delay(100);
+    sys::delay(100);
 
     // Init OLED
     ssd1306_SetDisplayOn(0); // display off
 
-    ssd1306_WriteCommand(0x20); // Set Memory Addressing Mode
-    ssd1306_WriteCommand(0x00); // 00b,Horizontal Addressing Mode; 01b,Vertical Addressing Mode;
-                                // 10b,Page Addressing Mode (RESET); 11b,Invalid
+    sys::command(0x20); // Set Memory Addressing Mode
+    sys::command(0x00); // 00b,Horizontal Addressing Mode; 01b,Vertical Addressing Mode;
+                        // 10b,Page Addressing Mode (RESET); 11b,Invalid
 
-    ssd1306_WriteCommand(0xB0); // Set Page Start Address for Page Addressing Mode,0-7
+    sys::command(0xB0); // Set Page Start Address for Page Addressing Mode,0-7
 
 #ifdef SSD1306_MIRROR_VERT
-    ssd1306_WriteCommand(0xC0); // Mirror vertically
+    sys::command(0xC0); // Mirror vertically
 #else
-    ssd1306_WriteCommand(0xC8); // Set COM Output Scan Direction
+    sys::command(0xC8); // Set COM Output Scan Direction
 #endif
 
-    ssd1306_WriteCommand(0x00); //---set low column address
-    ssd1306_WriteCommand(0x10); //---set high column address
+    sys::command(0x00); //---set low column address
+    sys::command(0x10); //---set high column address
 
-    ssd1306_WriteCommand(0x40); //--set start line address - CHECK
+    sys::command(0x40); //--set start line address - CHECK
 
     ssd1306_SetContrast(0xFF);
 
 #ifdef SSD1306_MIRROR_HORIZ
-    ssd1306_WriteCommand(0xA0); // Mirror horizontally
+    sys::command(0xA0); // Mirror horizontally
 #else
-    ssd1306_WriteCommand(0xA1); //--set segment re-map 0 to 127 - CHECK
+    sys::command(0xA1); //--set segment re-map 0 to 127 - CHECK
 #endif
 
 #ifdef SSD1306_INVERSE_COLOR
-    ssd1306_WriteCommand(0xA7); //--set inverse color
+    sys::command(0xA7); //--set inverse color
 #else
-    ssd1306_WriteCommand(0xA6); //--set normal color
+    sys::command(0xA6); //--set normal color
 #endif
 
 // Set multiplex ratio.
 #if (SSD1306_HEIGHT == 128)
     // Found in the Luma Python lib for SH1106.
-    ssd1306_WriteCommand(0xFF);
+    sys::command(0xFF);
 #else
-    ssd1306_WriteCommand(0xA8); //--set multiplex ratio(1 to 64) - CHECK
+    sys::command(0xA8); //--set multiplex ratio(1 to 64) - CHECK
 #endif
 
 #if (SSD1306_HEIGHT == 32)
-    ssd1306_WriteCommand(0x1F); //
+    sys::command(0x1F); //
 #elif (SSD1306_HEIGHT == 64)
-    ssd1306_WriteCommand(0x3F); //
+    sys::command(0x3F); //
 #elif (SSD1306_HEIGHT == 128)
-    ssd1306_WriteCommand(0x3F); // Seems to work for 128px high displays too.
+    sys::command(0x3F); // Seems to work for 128px high displays too.
 #else
 #error "Only 32, 64, or 128 lines of height are supported!"
 #endif
 
-    ssd1306_WriteCommand(0xA4); // 0xa4,Output follows RAM content;0xa5,Output ignores RAM content
+    sys::command(0xA4); // 0xa4,Output follows RAM content;0xa5,Output ignores RAM content
 
-    ssd1306_WriteCommand(0xD3); //-set display offset - CHECK
-    ssd1306_WriteCommand(0x00); //-not offset
+    sys::command(0xD3); //-set display offset - CHECK
+    sys::command(0x00); //-not offset
 
-    ssd1306_WriteCommand(0xD5); //--set display clock divide ratio/oscillator frequency
-    ssd1306_WriteCommand(0xF0); //--set divide ratio
+    sys::command(0xD5); //--set display clock divide ratio/oscillator frequency
+    sys::command(0xF0); //--set divide ratio
 
-    ssd1306_WriteCommand(0xD9); //--set pre-charge period
-    ssd1306_WriteCommand(0x22); //
+    sys::command(0xD9); //--set pre-charge period
+    sys::command(0x22); //
 
-    ssd1306_WriteCommand(0xDA); //--set com pins hardware configuration - CHECK
+    sys::command(0xDA); //--set com pins hardware configuration - CHECK
 #if (SSD1306_HEIGHT == 32)
-    ssd1306_WriteCommand(0x02);
+    sys::command(0x02);
 #elif (SSD1306_HEIGHT == 64)
-    ssd1306_WriteCommand(0x12);
+    sys::command(0x12);
 #elif (SSD1306_HEIGHT == 128)
-    ssd1306_WriteCommand(0x12);
+    sys::command(0x12);
 #else
 #error "Only 32, 64, or 128 lines of height are supported!"
 #endif
 
-    ssd1306_WriteCommand(0xDB); //--set vcomh
-    ssd1306_WriteCommand(0x20); // 0x20,0.77xVcc
+    sys::command(0xDB); //--set vcomh
+    sys::command(0x20); // 0x20,0.77xVcc
 
-    ssd1306_WriteCommand(0x8D); //--set DC-DC enable
-    ssd1306_WriteCommand(0x14); //
+    sys::command(0x8D); //--set DC-DC enable
+    sys::command(0x14); //
     ssd1306_SetDisplayOn(1); //--turn on SSD1306 panel
 
     // Clear screen
@@ -188,10 +142,10 @@ void ssd1306_UpdateScreen(void)
     //  * 64px   ==  8 pages
     //  * 128px  ==  16 pages
     for (uint8_t i = 0; i < SSD1306_HEIGHT / 8; i++) {
-        ssd1306_WriteCommand(0xB0 + i); // Set the current RAM page address.
-        ssd1306_WriteCommand(0x00 + SSD1306_X_OFFSET_LOWER);
-        ssd1306_WriteCommand(0x10 + SSD1306_X_OFFSET_UPPER);
-        ssd1306_WriteData(&SSD1306_Buffer[SSD1306_WIDTH * i], SSD1306_WIDTH);
+        sys::command(0xB0 + i); // Set the current RAM page address.
+        sys::command(0x00 + SSD1306_X_OFFSET_LOWER);
+        sys::command(0x10 + SSD1306_X_OFFSET_UPPER);
+        sys::data(&SSD1306_Buffer[SSD1306_WIDTH * i], SSD1306_WIDTH);
     }
 }
 
@@ -280,8 +234,8 @@ void ssd1306_SetCursor(uint8_t x, uint8_t y)
 /* Draw line by Bresenhem's algorithm */
 void ssd1306_Line(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, SSD1306_COLOR color)
 {
-    int32_t deltaX = abs(x2 - x1);
-    int32_t deltaY = abs(y2 - y1);
+    int32_t deltaX = std::abs(x2 - x1);
+    int32_t deltaY = std::abs(y2 - y1);
     int32_t signX = ((x1 < x2) ? 1 : -1);
     int32_t signY = ((y1 < y2) ? 1 : -1);
     int32_t error = deltaX - deltaY;
@@ -587,8 +541,8 @@ void ssd1306_DrawBitmap(uint8_t x, uint8_t y, const unsigned char* bitmap, uint8
 void ssd1306_SetContrast(const uint8_t value)
 {
     const uint8_t kSetContrastControlRegister = 0x81;
-    ssd1306_WriteCommand(kSetContrastControlRegister);
-    ssd1306_WriteCommand(value);
+    sys::command(kSetContrastControlRegister);
+    sys::command(value);
 }
 
 void ssd1306_SetDisplayOn(const uint8_t on)
@@ -601,7 +555,7 @@ void ssd1306_SetDisplayOn(const uint8_t on)
         value = 0xAE; // Display off
         SSD1306.DisplayOn = 0;
     }
-    ssd1306_WriteCommand(value);
+    sys::command(value);
 }
 
 uint8_t ssd1306_GetDisplayOn()
